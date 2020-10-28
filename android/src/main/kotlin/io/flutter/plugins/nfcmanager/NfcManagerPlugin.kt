@@ -14,6 +14,7 @@ import android.nfc.tech.NfcF
 import android.nfc.tech.NfcV
 import android.nfc.tech.TagTechnology
 import android.os.Build
+import android.os.Handler
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -26,6 +27,7 @@ import io.flutter.plugin.common.PluginRegistry.Registrar
 import java.io.IOException
 import java.lang.Exception
 import java.util.*
+import android.util.Log
 
 class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var channel : MethodChannel
@@ -33,6 +35,7 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   private lateinit var tags: MutableMap<String, Tag>
   private var adapter: NfcAdapter? = null
   private var connectedTech: TagTechnology? = null
+  private var isFirstConnect = true;
 
   // This static function is optional and equivalent to onAttachedToEngine. It supports the old
   // pre-Flutter-1.12 Android projects. You are encouraged to continue supporting
@@ -86,34 +89,39 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   }
 
   override fun onMethodCall(call: MethodCall, result: Result) {
-    when (call.method) {
-      "Nfc#isAvailable" -> handleNfcIsAvailable(call, result)
-      "Nfc#startSession" -> handleNfcStartSession(call, result)
-      "Nfc#stopSession" -> handleNfcStopSession(call, result)
-      "Nfc#disposeTag" -> handleNfcDisposeTag(call, result)
-      "Ndef#read" -> handleNdefRead(call, result)
-      "Ndef#write" -> handleNdefWrite(call, result)
-      "Ndef#writeLock" -> handleNdefWriteLock(call, result)
-      "NfcA#transceive" -> handleNfcATransceive(call, result)
-      "NfcB#transceive" -> handleNfcBTransceive(call, result)
-      "NfcF#transceive" -> handleNfcFTransceive(call, result)
-      "NfcV#transceive" -> handleNfcVTransceive(call, result)
-      "IsoDep#transceive" -> handleIsoDepTransceive(call, result)
-      "MifareClassic#authenticateSectorWithKeyA" -> handleMifareClassicAuthenticateSectorWithKeyA(call, result)
-      "MifareClassic#authenticateSectorWithKeyB" -> handleMifareClassicAuthenticateSectorWithKeyB(call, result)
-      "MifareClassic#increment" -> handleMifareClassicIncrement(call, result)
-      "MifareClassic#decrement" -> handleMifareClassicDecrement(call, result)
-      "MifareClassic#readBlock" -> handleMifareClassicReadBlock(call, result)
-      "MifareClassic#writeBlock" -> handleMifareClassicWriteBlock(call, result)
-      "MifareClassic#restore" -> handleMifareClassicRestore(call, result)
-      "MifareClassic#transfer" -> handleMifareClassicTransfer(call, result)
-      "MifareClassic#transceive" -> handleMifareClassicTransceive(call, result)
-      "MifareUltralight#readPages" -> handleMifareUltralightReadPages(call, result)
-      "MifareUltralight#writePage" -> handleMifareUltralightWritePage(call, result)
-      "MifareUltralight#transceive" -> handleMifareUltralightTransceive(call, result)
-      "NdefFormatable#format" -> handleNdefFormatableFormat(call, result)
-      "NdefFormatable#formatReadOnly" -> handleNdefFormatableFormatReadOnly(call, result)
-      else -> result.notImplemented()
+    try {
+      isFirstConnect = false;
+      when (call.method) {
+        "Nfc#isAvailable" -> handleNfcIsAvailable(call, result)
+        "Nfc#startSession" -> handleNfcStartSession(call, result)
+        "Nfc#stopSession" -> handleNfcStopSession(call, result)
+        "Nfc#disposeTag" -> handleNfcDisposeTag(call, result)
+        "Ndef#read" -> handleNdefRead(call, result)
+        "Ndef#write" -> handleNdefWrite(call, result)
+        "Ndef#writeLock" -> handleNdefWriteLock(call, result)
+        "NfcA#transceive" -> handleNfcATransceive(call, result)
+        "NfcB#transceive" -> handleNfcBTransceive(call, result)
+        "NfcF#transceive" -> handleNfcFTransceive(call, result)
+        "NfcV#transceive" -> handleNfcVTransceive(call, result)
+        "IsoDep#transceive" -> handleIsoDepTransceive(call, result)
+        "MifareClassic#authenticateSectorWithKeyA" -> handleMifareClassicAuthenticateSectorWithKeyA(call, result)
+        "MifareClassic#authenticateSectorWithKeyB" -> handleMifareClassicAuthenticateSectorWithKeyB(call, result)
+        "MifareClassic#increment" -> handleMifareClassicIncrement(call, result)
+        "MifareClassic#decrement" -> handleMifareClassicDecrement(call, result)
+        "MifareClassic#readBlock" -> handleMifareClassicReadBlock(call, result)
+        "MifareClassic#writeBlock" -> handleMifareClassicWriteBlock(call, result)
+        "MifareClassic#restore" -> handleMifareClassicRestore(call, result)
+        "MifareClassic#transfer" -> handleMifareClassicTransfer(call, result)
+        "MifareClassic#transceive" -> handleMifareClassicTransceive(call, result)
+        "MifareUltralight#readPages" -> handleMifareUltralightReadPages(call, result)
+        "MifareUltralight#writePage" -> handleMifareUltralightWritePage(call, result)
+        "MifareUltralight#transceive" -> handleMifareUltralightTransceive(call, result)
+        "NdefFormatable#format" -> handleNdefFormatableFormat(call, result)
+        "NdefFormatable#formatReadOnly" -> handleNdefFormatableFormatReadOnly(call, result)
+        else -> result.notImplemented()
+      }
+    } catch (e: Exception) {
+      result.error("io_exception", "onMethodCall exception", null)
     }
   }
 
@@ -166,7 +174,6 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
       try { tech.close() } catch (e: IOException) { /* no op */ }
 
     connectedTech = null
-
     result.success(null)
   }
 
@@ -195,35 +202,60 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   private fun handleNfcATransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { NfcA.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
   private fun handleNfcBTransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { NfcB.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
   private fun handleNfcFTransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { NfcF.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
   private fun handleNfcVTransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { NfcV.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
   private fun handleIsoDepTransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { IsoDep.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
@@ -296,7 +328,12 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   private fun handleMifareClassicTransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { MifareClassic.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
@@ -319,7 +356,12 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
   private fun handleMifareUltralightTransceive(call: MethodCall, result: Result) {
     tagHandler(call, result, { MifareUltralight.get(it) }) {
       val data = call.argument<ByteArray>("data")!!
-      result.success(it.transceive(data))
+      try{
+        result.success(it.transceive(data))
+      }catch (e:Exception){
+        result.error("io_exception", "transceive error", null)
+      }
+//      result.success(it.transceive(data))
     }
   }
 
@@ -352,22 +394,37 @@ class NfcManagerPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
     try {
       forceConnect(tech)
-      callback(tech)
+      if(isFirstConnect) {
+        Handler().postDelayed({
+          Log.i("===isFirstConnect=== ","等待了10000")
+          if(tech!=null)  callback(tech)
+        }, 1200)
+
+      }else{
+        Log.i("===isFirstConnect=== ","直接调用")
+        if(tech!=null)    callback(tech)
+      }
+//      callback(tech)
     } catch (e: Exception) {
-      result.error("io_exception", e.localizedMessage, null)
+      result.error("io_exception", "tagHandler error", null)
     }
   }
 
   @Throws(IOException::class)
   private fun forceConnect(tech: TagTechnology) {
+    Log.i("===isFirstConnect===1 ",isFirstConnect.toString())
     connectedTech?.let {
       if (it.tag == tech.tag && it::class.java.name == tech::class.java.name) return
       try { tech.close() } catch (e: IOException) { /* no op */ }
       tech.connect()
       connectedTech = tech
+      isFirstConnect = true
     } ?: run {
       tech.connect()
       connectedTech = tech
+      isFirstConnect = true
     }
+
+    Log.i("===isFirstConnect=== ",isFirstConnect.toString())
   }
 }
